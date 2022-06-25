@@ -1,9 +1,3 @@
-# Python 3.4.3 with Pygame
-import imp
-from sys import exit
-from turtle import color
-from cv2 import line, rectangle
-from numpy import tri
 import pygame
 import math
 import random
@@ -97,9 +91,11 @@ def getCircle(folds, scaleX, scaleY, worldPos):
 
 
 class ColorableCliqueGame:
-    def __init__(self, k, colors) -> None:
+    def __init__(self, width, height, k, colors) -> None:
         self.k = k
         self.colors = colors
+        self.nodes = getCircle(
+            self.k, width * 0.4, height * 0.4, (width / 2, height / 2))
         self.reset()
 
     def reset(self):
@@ -107,8 +103,6 @@ class ColorableCliqueGame:
         self.winner = -1
         self.adjecencyMatrix = {}
         self.edges = {}
-        self.nodes = getCircle(
-            self.k, WIDTH * 0.4, HEIGHT * 0.4, (WIDTH / 2, HEIGHT / 2))
         for i in range(self.k):
             for j in range(self.k):
                 key = (i, j)
@@ -192,44 +186,3 @@ class ColorableCliqueGame:
                     # edge.color = (int(random.random() * 255),
                     #               int(random.random() * 255), int(random.random() * 255))
                 print(key, "was clicked")
-
-
-            # Draw Once
-            # rectangle = pygame.draw.rect(window, (255, 0, 0), (100, 100, 100, 100))
-pygame.display.update()
-
-pa = Point(150, 150)
-pb = Point(300, 300)
-linea = ClickableLine(pa, pb, (0, 255, 100), 5)
-colors = [(255, 50, 50), (50, 50, 255)]
-K6 = ColorableCliqueGame(6, colors)
-
-
-run = True
-# Main Loop
-while run:
-    # Mouse position and button clicking
-    pos = pygame.mouse.get_pos()
-    pressed1 = pygame.mouse.get_pressed()[0]
-
-    event_list = pygame.event.get()
-    for event in event_list:
-        if event.type == pygame.QUIT:
-            run = False
-            pygame.quit()
-            exit()
-        if event.type == pygame.VIDEORESIZE:
-            # There's some code to add back window content here.
-            surface = pygame.display.set_mode((event.w, event.h),
-                                              pygame.RESIZABLE)
-            WIDTH = event.w
-            HEIGHT = event.h
-            K6.rescale(WIDTH * 0.4, HEIGHT * 0.4)
-            K6.transform((WIDTH / 2, HEIGHT / 2))
-
-    window.fill(0)
-    # linea.draw(window)
-    # linea.update(event_list)
-    K6.draw(window)
-    K6.update(event_list)
-    pygame.display.flip()
