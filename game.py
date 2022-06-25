@@ -4,10 +4,6 @@ import random
 import numpy as np
 pygame.init()
 
-WIDTH = HEIGHT = 300
-window = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
-pygame.display.set_caption('Crash!')
-
 
 class Point:
     def __init__(self, x, y) -> None:
@@ -94,6 +90,7 @@ class ColorableCliqueGame:
     def __init__(self, width, height, k, colors) -> None:
         self.k = k
         self.colors = colors
+        self.frame_window = pygame.display.set_mode((width, height))
         self.nodes = getCircle(
             self.k, width * 0.4, height * 0.4, (width / 2, height / 2))
         self.reset()
@@ -117,10 +114,43 @@ class ColorableCliqueGame:
             node: Point
             node.rescale(scaleX, scaleY)
 
+    def getMoves(self):
+        moves = []
+        for key in self.adjecencyMatrix:
+            if self.adjecencyMatrix[key] == 0:
+                moves.append(key)
+        return moves
+
+    def applyMove(self, move):
+        if self.winner != -1:
+            return True, self.player
+
+        if self.adjecencyMatrix[move] == 0:
+            edge = self.edges[move]
+            pc = self.player * 2 - 1
+            self.adjecencyMatrix[move] = pc
+            edge.color = self.colors[self.player]
+            triangle = self.detectTriangle(move, pc)
+            if triangle:
+                self.winner = self.player
+                return True, self.winner
+
+            self.player = (self.player + 1) % len(self.colors)
+            return False, self.player
+        return False, -1
+
     def transform(self, worldPos):
         for node in self.nodes:
             node: Point
             node.transform(worldPos)
+
+    def frame(self):
+        screen = self.frame_window
+        # screen.fill(self.level.background.color)
+        screen.fill((0, 0, 0))
+        self.draw(self.frame_window)
+        imgdata = pygame.surfarray.array3d(self.frame_window)
+        return imgdata
 
     def draw(self, window):
         for node in self.nodes:
@@ -169,20 +199,13 @@ class ColorableCliqueGame:
         for key in self.edges:
             edge: ClickableLine = self.edges[key]
             if(edge.isClicked(event_list)):
-                if self.adjecencyMatrix[key] == 0:
-                    pc = self.player * 2 - 1
-                    self.adjecencyMatrix[key] = pc
-                    edge.color = self.colors[self.player]
-                    triangle = self.detectTriangle(key, pc)
-                    if triangle:
-                        print("player", self.player, "has won!")
-                        self.winner = self.player
+                move = self.applyMove(key)
+                if self.applyMove(key):
+                    if move[0] == True:
+                        print("player", move[1], "has won!")
                         self.reset()
                         return
-
-                    self.player = (self.player + 1) % len(self.colors)
-                    print(self.state())
                 # print(int(random.random() * 255))
-                    # edge.color = (int(random.random() * 255),
-                    #               int(random.random() * 255), int(random.random() * 255))
+                # edge.color = (int(random.random() * 255),
+                #               int(random.random() * 255), int(random.random() * 255))
                 print(key, "was clicked")
