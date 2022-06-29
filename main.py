@@ -23,7 +23,7 @@ class SpriteObject(pygame.sprite.Sprite):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if self.rect.collidepoint(event.pos):
                     self.clicked = not self.clicked
-        
+
         self.image = self.click_image if self.clicked else self.original_image
 
 

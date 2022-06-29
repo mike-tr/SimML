@@ -5,6 +5,15 @@ import numpy as np
 pygame.init()
 
 
+def nCr(n, k):
+    s = n
+    d = 1
+    for i in range(1, k):
+        s *= (n - i)
+        d *= (i + 1)
+    return s / d
+
+
 class Point:
     def __init__(self, x, y) -> None:
         self._localX = x
@@ -87,12 +96,19 @@ def getCircle(folds, scaleX, scaleY, worldPos):
 
 
 class ColorableCliqueGame:
+    """
+    The player that creates a monochromatic K3 loses.
+    """
+
     def __init__(self, width, height, k, colors) -> None:
         self.k = k
+        self.default_color = (255, 255, 255)
         self.colors = colors
-        self.frame_window = pygame.display.set_mode((width, height))
+        self.frame_window = pygame.Surface((width, height), pygame.SRCALPHA)
         self.nodes = getCircle(
             self.k, width * 0.4, height * 0.4, (width / 2, height / 2))
+        self.turn_in_a_row = 1
+        self.turns = self.turn_in_a_row
         self.reset()
 
     def reset(self):
@@ -100,14 +116,46 @@ class ColorableCliqueGame:
         self.winner = -1
         self.adjecencyMatrix = {}
         self.edges = {}
+        self.movesMade = []
         for i in range(self.k):
             for j in range(self.k):
                 key = (i, j)
                 if i < j:
                     self.adjecencyMatrix[key] = 0
                     edge = ClickableLine(
-                        self.nodes[i], self.nodes[j], (255, 255, 255), 3)
+                        self.nodes[i], self.nodes[j], self.default_color, 3)
                     self.edges[key] = edge
+
+    def loadfrom1D(self, data: np.ndarray):
+        if len(self.colors) != 2:
+            print("this mode doesnt support loading!")
+            return
+
+        states = nCr(self.k, 2)
+        if len(data) > states + 1 or len(data) < states:
+            print("data dont match for k - ", self.k)
+            return
+
+        diff = (np.count_nonzero(data == -1) - np.count_nonzero(data == 1))
+        if diff < 0 or diff > 1:
+            print("bad data!")
+            return
+
+        print(self.k)
+        index = 0
+        for i in range(self.k):
+            for j in range(i+1, self.k):
+                key = (i, j)
+                self.adjecencyMatrix[key] = data[index]
+                if data[index] != 0:
+                    player = int((data[index] + 1) / 2)
+                    self.edges[key].color = self.colors[player]
+                index += 1
+
+        if diff == 0:
+            self.player = 1
+        else:
+            self.player = 0
 
     def rescale(self, scaleX, scaleY):
         for node in self.nodes:
@@ -115,27 +163,50 @@ class ColorableCliqueGame:
             node.rescale(scaleX, scaleY)
 
     def getMoves(self):
+        if self.winner != -1:
+            return []
         moves = []
         for key in self.adjecencyMatrix:
             if self.adjecencyMatrix[key] == 0:
                 moves.append(key)
         return moves
 
+    def undo(self):
+        if len(self.movesMade) > 0:
+            lastmove = self.movesMade.pop()
+            if self.turns == self.turn_in_a_row:
+                self.player = (self.player + 1) % len(self.colors)
+                self.turns = 1
+            else:
+                self.turns += 1
+            self.winner = -1
+            self.adjecencyMatrix[lastmove] = 0
+            edge = self.edges[lastmove]
+            edge.color = self.default_color
+        return self.player
+
     def applyMove(self, move):
+        """
+        The player that creates a monochromatic K3 loses.
+        """
         if self.winner != -1:
             return True, self.player
 
         if self.adjecencyMatrix[move] == 0:
+            self.movesMade.append(move)
             edge = self.edges[move]
             pc = self.player * 2 - 1
             self.adjecencyMatrix[move] = pc
             edge.color = self.colors[self.player]
             triangle = self.detectTriangle(move, pc)
+            next_player = (self.player + 1) % len(self.colors)
+            self.turns -= 1
+            if self.turns == 0:
+                self.player = next_player
+                self.turns = self.turn_in_a_row
             if triangle:
-                self.winner = self.player
+                self.winner = next_player
                 return True, self.winner
-
-            self.player = (self.player + 1) % len(self.colors)
             return False, self.player
         return False, -1
 
@@ -194,6 +265,15 @@ class ColorableCliqueGame:
                     key = (j, i)
                     arr[i].append(self.adjecencyMatrix[key])
         return np.array(arr), self.player * 2 - 1
+
+    def state1D(self):
+        arr = []
+        for i in range(self.k):
+            for j in range(i+1, self.k):
+                key = (i, j)
+                arr.append(self.adjecencyMatrix[key])
+        arr.append(self.player * 2 - 1)
+        return np.array(arr)
 
     def update(self, event_list):
         for key in self.edges:
