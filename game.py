@@ -11,7 +11,7 @@ def nCr(n, k):
     for i in range(1, k):
         s *= (n - i)
         d *= (i + 1)
-    return s / d
+    return int(s / d)
 
 
 class Point:
@@ -40,6 +40,12 @@ class Point:
     def pos(self):
         return (self._localX + self._worldPosX, self._localY + self._worldPosY)
 
+
+
+def IsTriangle(game, a,b,c):
+    if game.adjecencyMatrix[(a,b)] == game.adjecencyMatrix[(a,c)] == game.adjecencyMatrix[(b,c)] and game.adjecencyMatrix[(a,b)] != 0:
+        return int((-game.adjecencyMatrix[(a,b)] + 1) / 2)
+    return -1
 
 class ClickableLine:
     def __init__(self, startPoint: Point, endPoint: Point, color, width) -> None:
@@ -118,7 +124,7 @@ class ColorableCliqueGame:
         self.edges = {}
         self.movesMade = []
         for i in range(self.k):
-            for j in range(self.k):
+            for j in range(i+1,self.k):
                 key = (i, j)
                 if i < j:
                     self.adjecencyMatrix[key] = 0
@@ -128,20 +134,25 @@ class ColorableCliqueGame:
 
     def loadfrom1D(self, data: np.ndarray):
         if len(self.colors) != 2:
-            print("this mode doesnt support loading!")
-            return
+            #print("this mode doesnt support loading!")
+            return False
+
 
         states = nCr(self.k, 2)
+        data = data[:states]
+        #print(len(data))
         if len(data) > states + 1 or len(data) < states:
-            print("data dont match for k - ", self.k)
-            return
+            #print("data dont match for k - ", self.k)
+            return False
 
         diff = (np.count_nonzero(data == -1) - np.count_nonzero(data == 1))
         if diff < 0 or diff > 1:
-            print("bad data!")
-            return
+            #print("bad data! ",diff)
+            return False
 
-        print(self.k)
+        self.player = 0
+        self.winner = -1
+        # print(self.k)
         index = 0
         for i in range(self.k):
             for j in range(i+1, self.k):
@@ -150,12 +161,25 @@ class ColorableCliqueGame:
                 if data[index] != 0:
                     player = int((data[index] + 1) / 2)
                     self.edges[key].color = self.colors[player]
+                else:
+                    self.edges[key].color = self.default_color
                 index += 1
 
         if diff == 0:
             self.player = 1
         else:
             self.player = 0
+
+        self.winner == -1
+        for a in range(self.k):
+            for b in range(a + 1,self.k):
+                for c in range(b + 1,self.k):
+                    t = IsTriangle(self,a,b,c)
+                    if t != -1:
+                        if self.winner != -1:
+                            return False
+                        self.winner = t
+        return True
 
     def rescale(self, scaleX, scaleY):
         for node in self.nodes:
@@ -289,3 +313,4 @@ class ColorableCliqueGame:
                 # edge.color = (int(random.random() * 255),
                 #               int(random.random() * 255), int(random.random() * 255))
                 print(key, "was clicked")
+        
