@@ -4,7 +4,6 @@ import random
 import numpy as np
 pygame.init()
 
-
 def nCr(n, k):
     s = n
     d = 1
