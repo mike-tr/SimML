@@ -165,9 +165,9 @@ class ColorableCliqueGame:
                 index += 1
 
         if diff == 0:
-            self.player = 1
-        else:
             self.player = 0
+        else:
+            self.player = 1
 
         self.winner == -1
         for a in range(self.k):
