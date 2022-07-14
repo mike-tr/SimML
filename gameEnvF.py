@@ -1,3 +1,4 @@
+from tkinter import N
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,6 +10,9 @@ import importlib
 import game
 importlib.reload(game)
 
+colors = [(255, 100, 100), (100, 100, 255)]
+_penv = ColorableCliqueGame(300, 300, 6, colors)
+
 
 def nCr(n, k):
     s = n
@@ -19,27 +23,39 @@ def nCr(n, k):
     return int(s / d)
 
 
-def draw(env: ColorableCliqueGame):
+def draw(env: ColorableCliqueGame, show=True):
     imgdata = env.frame()
     plt.imshow(imgdata)
     # print(np.max(imgdata), np.min(imgdata), np.average(imgdata))
-    plt.show()
+    if(show):
+        plt.show()
 
 
 def checkColor(game: ColorableCliqueGame, color, nocolor, a, b, c, seen):
     # assume (a,b) colored.
     if game.adjecencyMatrix[(a, c)] == color:
         # (a,c) also colored
+        # count triangles too.
         if game.adjecencyMatrix[(b, c)] == nocolor:
-            seen[(b, c)] = 1
-            # (b,c) is not colored yet.
-            return 1
+            if (b, c) not in seen:
+                seen[(b, c)] = 1
+                # (b,c) is not colored yet.
+                return 1
+            return 0
+        elif game.adjecencyMatrix[(b, c)] == color:
+            if (b, c) not in seen:
+                seen[(b, c)] = 1
+                # (b,c) is not colored yet.
+                return 3
+            return 0
+    # count triangles too.
     elif game.adjecencyMatrix[(a, c)] == nocolor:
         # (a,c) is not colored
         if game.adjecencyMatrix[(b, c)] == color:
             # (b,c) is colored.
-            seen[(a, c)] = 1
-            return 1
+            if (a, c) not in seen:
+                seen[(a, c)] = 1
+                return 1
     return 0
 
 
@@ -53,29 +69,33 @@ def distinct_cherry_counter(game: ColorableCliqueGame):
     p1c = 1
     nocolor = 0
 
-    seen = {}
+    seen0 = {}
+    seen1 = {}
     for a in range(game.k):
         for b in range(a+1, game.k):
-            if (a, b) in seen:
-                continue
             for c in range(b+1, game.k):
-                if (a, c) in seen or (b, c) in seen:
-                    continue
                 if game.adjecencyMatrix[(a, b)] == p0c:
                     p0Triangles += checkColor(game,
-                                              p0c, nocolor, a, b, c, seen)
-                if game.adjecencyMatrix[(a, b)] == p1c:
+                                              p0c, nocolor, a, b, c, seen0)
+                elif game.adjecencyMatrix[(a, b)] == p1c:
                     p1Triangles += checkColor(game,
-                                              p1c, nocolor, a, b, c, seen)
+                                              p1c, nocolor, a, b, c, seen1)
                 else:
                     # (a,b) has no color.
                     if game.adjecencyMatrix[(a, c)] == p0c and game.adjecencyMatrix[(b, c)] == p0c:
-                        p0Triangles += 1
-                        seen[(a, b)] = 1
+                        if (a, b) not in seen0:
+                            p0Triangles += 1
+                            seen0[(a, b)] = 1
                     elif game.adjecencyMatrix[(a, c)] == p1c and game.adjecencyMatrix[(b, c)] == p1c:
-                        p1Triangles += 1
-                        seen[(a, b)] = 1
+                        if (a, b) not in seen1:
+                            p1Triangles += 1
+                            seen1[(a, b)] = 1
     return p0Triangles, p1Triangles
+
+
+def numpy_distinct_cherry_counter(x):
+    _penv.loadfrom1D(x)
+    return distinct_cherry_counter(_penv)
 
 
 def cherry_counter(game: ColorableCliqueGame):
@@ -95,7 +115,7 @@ def cherry_counter(game: ColorableCliqueGame):
                 if game.adjecencyMatrix[(a, b)] == p0c:
                     p0Triangles += checkColor(game,
                                               p0c, nocolor, a, b, c, seen)
-                if game.adjecencyMatrix[(a, b)] == p1c:
+                elif game.adjecencyMatrix[(a, b)] == p1c:
                     p1Triangles += checkColor(game,
                                               p1c, nocolor, a, b, c, seen)
                 else:
@@ -196,22 +216,7 @@ def alphabetaMaxDepth(cliqueGame: ColorableCliqueGame, alpha, beta, depth, huris
     color = -(cliqueGame.player * 2 - 1)  # if player 1 then color = -1
     for move in cliqueGame.getMoves():
         cliqueGame.applyMove(move)
-        # after each move the current player can only lose.
-        # assume that this is the turn of player 0.
-        # if after playing 0 lost. (1 won)
-        # then ab(game) = -1
-        # then we wish to return -1.
 
-        # assume that this is the turn of player 1.
-        # if after playing 1 lost. (0 won)
-        # then ab(game) = 1
-        # then we wish to return 1.
-
-        # times 0.5, so we would prefer longer games, when we lose 100%, as the goal is to survive longer.
-        # if curr == cliqueGame.player:
-        #     score = color * 0.975 * \
-        #         alphabetaMaxDepth(cliqueGame, alpha, beta, depth-1, huristicsf)
-        # else:
         score = color * 0.975 * \
             alphabetaMaxDepth(cliqueGame, -beta, -alpha,
                               depth-1, huristic_function)
@@ -226,6 +231,40 @@ def alphabetaMaxDepth(cliqueGame: ColorableCliqueGame, alpha, beta, depth, huris
     # The higher the value the better it is for player 0.
     # generallity 0 > means that 0 wins, and negative values means that player 1 wins.
     return color * bestscore
+
+
+def alphabeta(node: ColorableCliqueGame, depth, a, b, maximizingPlayer, huristic_function):
+    if node.winner != -1:
+        # Assume that 1 has already won, we return -(1 * 2 - 1) = -1.
+        # Assume that 0 has already won, we return -(0 * 2 - 1) = 1
+        score = -100 * (node.winner * 2 - 1)
+        # return some value much bigger then nCr(k,3)
+        return score
+
+    if depth == 0:
+        return huristic_function(node)
+    if maximizingPlayer:
+        value = -999999
+        for move in node.getMoves():
+            node.applyMove(move)
+            value = max(value, 0.9 * alphabeta(node, depth - 1,
+                        a, b, False, huristic_function))
+            node.undo()
+            if value >= b:
+                break  # (* β cutoff *)
+            a = max(a, value)
+        return value
+    else:
+        value = 999999
+        for move in node.getMoves():
+            node.applyMove(move)
+            value = min(value, 0.9 * alphabeta(node, depth - 1,
+                        a, b, True, huristic_function))
+            node.undo()
+            if value <= a:
+                break  # (* α cutoff *)
+            b = min(b, value)
+        return value
 
 
 def random_move(game: ColorableCliqueGame):
@@ -244,8 +283,26 @@ def alphabetaMove(game: ColorableCliqueGame, depth, huristic_func):
     color = -(game.player * 2 - 1)
     for move in moves:
         game.applyMove(move)
-        score = color * \
-            alphabetaMaxDepth(game, -99999, 99999, depth, huristic_func)
+        score = color * alphabeta(game, depth, -99999,
+                                  99999, game.player == 0, huristic_func)
+        #alphabetaMaxDepth(game, -99999, 99999, depth, huristic_func)
+        game.undo()
+        if score > bestscore:
+            bestscore = score
+            bestmove = move
+    return game.applyMove(bestmove)
+
+
+def alphabetaMove2(game: ColorableCliqueGame, depth, huristic_func):
+    moves = game.getMoves()
+    bestmove = None
+    bestscore = -99999
+    color = -(game.player * 2 - 1)
+    for move in moves:
+        game.applyMove(move)
+        score = color * alphabetaMaxDepth(game, depth, -99999,
+                                          99999, huristic_func)
+        #alphabetaMaxDepth(game, -99999, 99999, depth, huristic_func)
         game.undo()
         if score > bestscore:
             bestscore = score
@@ -295,10 +352,11 @@ def getLegalStatesAndTag(psuedoLegalStates, depth, huristic_function, log=100000
         # env.reset()
         counter += 1
         if counter % log == 0:
-            print(counter)
+            print("ab", counter)
             # break
         if env.loadfrom1D(state):
-            val = alphabetaMaxDepth(env, -9999, 9999, depth, huristic_function)
+            val = alphabeta(env, depth, -99999,
+                            99999, env.player == 0, huristic_function)
             # print(val)
             # print(env.winner)
             # print(alphabetaMaxDepth(env, -9999, 9999, 2))
