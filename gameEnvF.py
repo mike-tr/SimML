@@ -293,6 +293,42 @@ def alphabetaMove(game: ColorableCliqueGame, depth, huristic_func):
     return game.applyMove(bestmove)
 
 
+indexToMoveMap = {}
+MoveToIndexMap = {}
+
+k = 0
+for i in range(6):
+    for j in range(i+1, 6):
+        indexToMoveMap[k] = (i, j)
+        MoveToIndexMap[(i, j)] = k
+        k += 1
+
+
+def indexToMove(index):
+    return indexToMoveMap[index]
+
+
+def moveToIndex(move):
+    return MoveToIndexMap[move]
+
+
+def alphabetaMoveRet(game: ColorableCliqueGame, depth, huristic_func):
+    moves = game.getMoves()
+    bestmove = None
+    bestscore = -99999
+    color = -(game.player * 2 - 1)
+    for move in moves:
+        game.applyMove(move)
+        score = color * alphabeta(game, depth, -99999,
+                                  99999, game.player == 0, huristic_func)
+        #alphabetaMaxDepth(game, -99999, 99999, depth, huristic_func)
+        game.undo()
+        if score > bestscore:
+            bestscore = score
+            bestmove = move
+    return bestmove
+
+
 def alphabetaMove2(game: ColorableCliqueGame, depth, huristic_func):
     moves = game.getMoves()
     bestmove = None
@@ -361,6 +397,33 @@ def getLegalStatesAndTag(psuedoLegalStates, depth, huristic_function, log=100000
             # print(env.winner)
             # print(alphabetaMaxDepth(env, -9999, 9999, 2))
             X.append([env.state1D(), val])
+            # draw(env)
+            # break
+    X = np.array(list(X))
+    return X
+
+
+def getNextBestMoves(psuedoLegalStates, depth, huristic_function, log=100000):
+    X = []
+    counter = 0
+    colors = [(255, 100, 100), (100, 100, 255)]
+    env = ColorableCliqueGame(300, 300, 6, colors)
+    for state in psuedoLegalStates:
+        if abs(state).sum() < 4:
+            continue
+        # env.reset()
+        counter += 1
+        if counter % log == 0:
+            print("ab", counter)
+            # break
+        if env.loadfrom1D(state):
+            if env.winner != -1:
+                continue
+            move = alphabetaMoveRet(env, depth, huristic_function)
+            # print(val)
+            # print(env.winner)
+            # print(alphabetaMaxDepth(env, -9999, 9999, 2))
+            X.append([env.state1D(), moveToIndex(move)])
             # draw(env)
             # break
     X = np.array(list(X))
